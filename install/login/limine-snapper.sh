@@ -21,7 +21,16 @@ EOF
 
   # Double-check and exit if we don't have a config file for some reason
   if [[ ! -f $limine_config ]]; then
-    echo "Error: Limine config not found at $limine_config" >&2
+    config_dir=$(dirname "$limine_config")
+    
+    if [[ -d "$config_dir" ]] && [[ ! -r "$config_dir" || ! -x "$config_dir" ]]; then
+      echo "Error: Permission denied accessing $config_dir" >&2
+      echo "The installer cannot read your boot config to detect UEFI settings." >&2
+    elif [[ ! -x "/boot" ]]; then
+      echo "Error: Permission denied accessing /boot" >&2
+    else
+      echo "Error: Limine config not found at $limine_config" >&2
+    fi
     exit 1
   fi
 
