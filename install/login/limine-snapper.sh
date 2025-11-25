@@ -5,12 +5,12 @@ if command -v limine &>/dev/null; then
 HOOKS=(base udev plymouth keyboard autodetect microcode modconf kms keymap consolefont block encrypt filesystems fsck btrfs-overlayfs)
 EOF
 
-  [[ -f /boot/EFI/limine/limine.conf ]] || [[ -f /boot/EFI/BOOT/limine.conf ]] && EFI=true
+  sudo test -f /boot/EFI/limine/limine.conf || sudo test -f /boot/EFI/BOOT/limine.conf && EFI=true
 
   # Conf location is different between EFI and BIOS
   if [[ -n "$EFI" ]]; then
     # Check USB location first, then regular EFI location
-    if [[ -f /boot/EFI/BOOT/limine.conf ]]; then
+    if sudo test -f /boot/EFI/BOOT/limine.conf; then
       limine_config="/boot/EFI/BOOT/limine.conf"
     else
       limine_config="/boot/EFI/limine/limine.conf"
@@ -20,21 +20,12 @@ EOF
   fi
 
   # Double-check and exit if we don't have a config file for some reason
-  if [[ ! -f $limine_config ]]; then
-    config_dir=$(dirname "$limine_config")
-    
-    if [[ -d "$config_dir" ]] && [[ ! -r "$config_dir" || ! -x "$config_dir" ]]; then
-      echo "Error: Permission denied accessing $config_dir" >&2
-      echo "The installer cannot read your boot config to detect UEFI settings." >&2
-    elif [[ ! -x "/boot" ]]; then
-      echo "Error: Permission denied accessing /boot" >&2
-    else
-      echo "Error: Limine config not found at $limine_config" >&2
-    fi
+  if ! sudo test -f "$limine_config"; then
+    echo "Error: Limine config not found at $limine_config" >&2
     exit 1
   fi
 
-  CMDLINE=$(grep "^[[:space:]]*cmdline:" "$limine_config" | head -1 | sed 's/^[[:space:]]*cmdline:[[:space:]]*//')
+  CMDLINE=$(sudo cat "$limine_config" | grep "^[[:space:]]*cmdline:" | head -1 | sed 's/^[[:space:]]*cmdline:[[:space:]]*//')
 
   sudo tee /etc/default/limine <<EOF >/dev/null
 TARGET_OS_NAME="Omarchy"
@@ -88,7 +79,7 @@ term_background_bright: 24283b
 EOF
 
   # Remove the original config file if it's not /boot/limine.conf
-  if [[ "$limine_config" != "/boot/limine.conf" ]] && [[ -f "$limine_config" ]]; then
+  if [[ "$limine_config" != "/boot/limine.conf" ]] && sudo test -f "$limine_config"; then
     sudo rm "$limine_config"
   fi
 
@@ -127,11 +118,11 @@ echo "mkinitcpio hooks re-enabled"
 
 sudo limine-update
 
-if [[ -n $EFI ]] && efibootmgr &>/dev/null; then
+if [[ -n $EFI ]] && sudo efibootmgr &>/dev/null; then
     # Remove the archinstall-created Limine entry
   while IFS= read -r bootnum; do
     sudo efibootmgr -b "$bootnum" -B >/dev/null 2>&1
-  done < <(efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
+  done < <(sudo efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
 fi
 
 # Move this to a utility to allow manual activation
